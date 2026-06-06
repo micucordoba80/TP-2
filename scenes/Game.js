@@ -4,20 +4,22 @@ export default class Game extends Phaser.Scene {
   }
 
   init(data) {
-    this.currentLevel = data.level || 1; 
-    this.score = data.score || 0;        
-    this.collectedStarsInLevel = 0;      
+    this.currentLevel = data.level || 1; // Controla si es nivel 1, 2 o 3
+    this.score = data.score || 0;        // Mantiene el puntaje acumulado anterior
+    this.collectedStarsInLevel = 0;      // Contador de estrellas de este nivel
   }
 
   preload() {
+    // 🛠️ VARIABLES ADAPTADAS: Cargamos tilset1.png, tilset2.png y tilset3.png
     if (this.currentLevel === 1) {
-      this.load.tilemapTiledJSON("map", "public/assets/tilemap/map.json");
-      this.load.image("tileset", "public/assets/texture.png");
+      this.load.tilemapTiledJSON("map1", "public/assets/tilemap/map.json");
+      this.load.image("tilesetKey1", "public/assets/tilset1.png");
     } else {
-      this.load.tilemapTiledJSON("map", "public/assets/tilemap/map2.json");
-      this.load.image("tileset", "public/assets/texture2.png");
+      this.load.tilemapTiledJSON(`map${this.currentLevel}`, `public/assets/tilemap/map${this.currentLevel}.json`);
+      this.load.image(`tilesetKey${this.currentLevel}`, `public/assets/tilset${this.currentLevel}.png`);
     }
 
+    // Assets globales de tu proyecto
     this.load.image("star", "public/assets/star.png");
     this.load.image("bomb", "public/assets/bomb.png"); 
 
@@ -28,19 +30,25 @@ export default class Game extends Phaser.Scene {
   }
 
   create() {
-    const map = this.make.tilemap({ key: "map" });
-    const tileset = map.addTilesetImage("tileset", "tileset");
+    // Definimos las claves dinámicas correspondientes a este nivel específico
+    const mapKey = this.currentLevel === 1 ? "map1" : `map${this.currentLevel}`;
+    const tilesetKey = this.currentLevel === 1 ? "tilesetKey1" : `tilesetKey${this.currentLevel}`;
+
+    const map = this.make.tilemap({ key: mapKey });
+    
+    // Importante: El primer parámetro "tileset" tiene que coincidir con el nombre del patrón en tu Tiled
+    const tileset = map.addTilesetImage("tileset", tilesetKey);
 
     const belowLayer = map.createLayer("Fondo", tileset, 0, 0);
     const platformLayer = map.createLayer("Plataformas", tileset, 0, 0);
     const objectsLayer = map.getObjectLayer("Objetos");
 
+    // Spawn del jugador basado en Tiled
     const spawnPoint = map.findObject("Objetos", (obj) => obj.name === "player");
     this.player = this.physics.add.sprite(spawnPoint.x, spawnPoint.y, "dude");
-    
-    // Le sacamos el setBounce para que no rebote feo contra los pasillos del laberinto
     this.player.setCollideWorldBounds(true);
 
+    // Animaciones del personaje
     if (!this.anims.exists("left")) {
       this.anims.create({
         key: "left",
@@ -61,70 +69,78 @@ export default class Game extends Phaser.Scene {
       });
     }
 
+    // Controles por teclado
     this.cursors = this.input.keyboard.createCursorKeys();
     this.keyR = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
 
+    // Paredes colisionables
     platformLayer.setCollisionByProperty({ esColisionable: true });
     this.physics.add.collider(this.player, platformLayer);
 
+    // 🎥 SEGUIMIENTO DE CÁMARA: Únicamente se activa en el Nivel 3 gigante
+    if (this.currentLevel === 3) {
+      this.cameras.main.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
+      this.physics.world.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
+      this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+    }
+
+    // Inicializar grupos de estrellas y meta
     this.stars = this.physics.add.group();
     this.goals = this.physics.add.staticGroup(); 
 
-    objectsLayer.objects.forEach((objData) => {
-      const { x = 0, y = 0, name, type } = objData;
-      
-      if (type === "star") {
-        const star = this.stars.create(x, y, "star");
-        // En un laberinto de vista de arriba, las estrellas no caen, quedan fijas en su lugar
-        star.body.allowGravity = false; 
-      } 
-      else if (type === "goal") {
-        this.goals.create(x, y, "bomb");
-      }
-    });
+    // Cargar los objetos desde Tiled de forma segura
+    if (objectsLayer && objectsLayer.objects) {
+      objectsLayer.objects.forEach((objData) => {
+        const { x = 0, y = 0, type } = objData;
+        
+        if (type === "star") {
+          const star = this.stars.create(x, y, "star");
+          star.body.allowGravity = false; 
+        } 
+        else if (type === "goal") {
+          this.goals.create(x, y, "bomb"); 
+        }
+      });
+    }
 
+    // Colisiones e interacciones
+    this.physics.add.collider(this.stars, platformLayer);
     this.physics.add.overlap(this.player, this.stars, this.collectStar, null, this);
     this.physics.add.overlap(this.player, this.goals, this.reachGoal, null, this);
 
-    this.scoreText = this.add.text(16, 16, `Score: ${this.score}`, { fontSize: "32px", fill: "#000" });
-    this.starsText = this.add.text(16, 50, `Estrellas: ${this.collectedStarsInLevel} / 5`, { fontSize: "24px", fill: "#000" });
-    this.levelText = this.add.text(550, 16, `Nivel: ${this.currentLevel}`, { fontSize: "24px", fill: "#000" });
+    // Interfaz de Usuario fija en pantalla (No se desplaza con la cámara)
+    this.uiContainer = this.add.container(0, 0).setScrollFactor(0);
+    this.scoreText = this.add.text(16, 16, `Score: ${this.score}`, { fontSize: "28px", fill: "#fff", backgroundColor: "#000" });
+    this.starsText = this.add.text(16, 50, `Estrellas: ${this.collectedStarsInLevel} / 5`, { fontSize: "20px", fill: "#ffff00", backgroundColor: "#000" });
+    this.levelText = this.add.text(580, 16, `Nivel: ${this.currentLevel}`, { fontSize: "24px", fill: "#fff", backgroundColor: "#000" });
+    this.uiContainer.add([this.scoreText, this.starsText, this.levelText]);
   }
 
   update() {
-    // 👈 MOVIMIENTO DE LABERINTO (4 DIRECCIONES)
-    
-    // Primero reseteamos la velocidad para que si no tocás nada, se quede quieto
     this.player.setVelocity(0);
 
-    // Eje Horizontal (Izquierda / Derecha)
+    // Controles de movimiento en 4 direcciones
     if (this.cursors.left.isDown) {
-      this.player.setVelocityX(-160);
+      this.player.setVelocityX(-180);
       this.player.anims.play("left", true);
     } else if (this.cursors.right.isDown) {
-      this.player.setVelocityX(160);
+      this.player.setVelocityX(180);
       this.player.anims.play("right", true);
     }
 
-    // Eje Vertical (Arriba / Abajo)
     if (this.cursors.up.isDown) {
-      this.player.setVelocityY(-160); // Camina hacia arriba
-      if (!this.cursors.left.isDown && !this.cursors.right.isDown) {
-        this.player.anims.play("left", true); // Animación temporal
-      }
+      this.player.setVelocityY(-180);
+      if (!this.cursors.left.isDown && !this.cursors.right.isDown) this.player.anims.play("left", true);
     } else if (this.cursors.down.isDown) {
-      this.player.setVelocityY(160); // Camina hacia abajo
-      if (!this.cursors.left.isDown && !this.cursors.right.isDown) {
-        this.player.anims.play("right", true); // Animación temporal
-      }
+      this.player.setVelocityY(180);
+      if (!this.cursors.left.isDown && !this.cursors.right.isDown) this.player.anims.play("left", true);
     }
 
-    // Si no se mueve en ninguna dirección, frame quieto
     if (this.player.body.velocity.x === 0 && this.player.body.velocity.y === 0) {
       this.player.anims.play("turn");
     }
 
-    // Reiniciar nivel con la R
+    // Reiniciar nivel actual de forma segura con la tecla R
     if (Phaser.Input.Keyboard.JustDown(this.keyR)) {
       this.scene.restart({ level: this.currentLevel, score: this.score });
     }
@@ -139,19 +155,19 @@ export default class Game extends Phaser.Scene {
   }
 
   reachGoal(player, goal) {
+    // Requisito obligatorio: tener recolectadas al menos 5 estrellas
     if (this.collectedStarsInLevel >= 5) {
-      console.log("¡Ganaste el nivel!");
-      if (this.currentLevel === 1) {
+      if (this.currentLevel < 3) {
+        // Pasa al siguiente nivel arrastrando el puntaje acumulado anterior
         this.scene.restart({
-          level: 2,
+          level: this.currentLevel + 1,
           score: this.score
         });
       } else {
-        this.add.text(150, 300, "¡GANASTE EL JUEGO!", { fontSize: "40px", fill: "#0f0", backgroundColor: "#000" });
+        // Fin del juego definitivo al terminar el Nivel 3 grande
+        this.add.text(140, 320, "¡JUEGO LABERINTO COMPLETADO!", { fontSize: "36px", fill: "#0f0", backgroundColor: "#000" }).setScrollFactor(0);
         this.physics.pause();
       }
-    } else {
-      console.log("Te faltan estrellas. Necesitás mínimo 5.");
     }
   }
 }
