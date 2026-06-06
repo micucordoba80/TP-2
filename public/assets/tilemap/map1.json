@@ -140,7 +140,7 @@
                  "type":"",
                  "visible":true,
                  "width":0,
-                 "x":22.4126659354068,
+                 "x":25.2093254809496,
                  "y":295.553081550089
                 }, 
                 {
@@ -210,29 +210,16 @@
                 }, 
                 {
                  "height":0,
-                 "id":9,
-                 "name":"",
-                 "opacity":1,
-                 "point":true,
-                 "rotation":0,
-                 "type":"star",
-                 "visible":true,
-                 "width":0,
-                 "x":297.598757040202,
-                 "y":607.15070887551
-                }, 
-                {
-                 "height":0,
                  "id":7,
                  "name":"",
                  "opacity":1,
                  "point":true,
                  "rotation":0,
-                 "type":"",
+                 "type":"goal",
                  "visible":true,
                  "width":0,
-                 "x":428.977859778598,
-                 "y":667.894736842105
+                 "x":561.819188191882,
+                 "y":669.293066614877
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -250,7 +237,7 @@
         {
          "columns":33,
          "firstgid":1,
-         "image":"..\/texture.png",
+         "image":"..\/1.png",
          "imageheight":680,
          "imagewidth":800,
          "margin":0,
