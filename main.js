@@ -7,16 +7,23 @@ const config = {
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
+    min: {
+      width: 800,
+      height: 600,
+    },
+    max: {
+      width: 1600,
+      height: 1200,
+    },
   },
   physics: {
     default: "arcade",
     arcade: {
-      gravity: { y: 300 }, // Gravedad para plataformas
-      debug: false,       // Cambiar a true para ver los recuadros de colisión
+      gravity: { y: 0 }, // Laberinto estricto sin caídas
+      debug: true,       // Dejalo en true para ver las cajitas verdes de colisión
     },
   },
-  // Pasamos un objeto con el nivel actual al iniciar la escena
   scene: [Game],
 };
 
-new Phaser.Game(config);
+window.game = new Phaser.Game(config);
