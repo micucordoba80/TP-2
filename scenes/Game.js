@@ -4,20 +4,26 @@ export default class Game extends Phaser.Scene {
   }
 
   init(data) {
-    this.currentLevel = data.level || 1; // Controla si es nivel 1, 2 o 3
+    this.currentLevel = data.level !== undefined ? data.level : 3; // Empieza temporalmente en el nivel 3
     this.score = data.score || 0;        // Mantiene el puntaje acumulado anterior
     this.collectedStarsInLevel = 0;      // Contador de estrellas de este nivel
   }
 
   preload() {
-    // 🛠️ VARIABLES ADAPTADAS: Cargamos tilset1.png, tilset2.png y tilset3.png
-    if (this.currentLevel === 1) {
-      this.load.tilemapTiledJSON("map1", "public/assets/tilemap/map.json");
-      this.load.image("tilesetKey1", "public/assets/tilset1.png");
-    } else {
-      this.load.tilemapTiledJSON(`map${this.currentLevel}`, `public/assets/tilemap/map${this.currentLevel}.json`);
-      this.load.image(`tilesetKey${this.currentLevel}`, `public/assets/tilset${this.currentLevel}.png`);
+    const mapKey = `map${this.currentLevel}`;
+    let mapFile = "public/assets/tilemap/map.json";
+    let tilesetFile = "public/assets/1.png";
+
+    if (this.currentLevel === 2) {
+      mapFile = "public/assets/tilemap/map2.json";
+    } else if (this.currentLevel === 3) {
+      mapFile = "public/assets/tilemap/map3.json";
     }
+
+    this.load.tilemapTiledJSON(`map${this.currentLevel}`, mapFile);
+    this.load.image(`tilesetKey${this.currentLevel}`, tilesetFile);
+
+
 
     // Assets globales de tu proyecto
     this.load.image("star", "public/assets/star.png");
@@ -31,20 +37,32 @@ export default class Game extends Phaser.Scene {
 
   create() {
     // Definimos las claves dinámicas correspondientes a este nivel específico
-    const mapKey = this.currentLevel === 1 ? "map1" : `map${this.currentLevel}`;
-    const tilesetKey = this.currentLevel === 1 ? "tilesetKey1" : `tilesetKey${this.currentLevel}`;
+    const mapKey = `map${this.currentLevel}`;
+    const tilesetKey = `tilesetKey${this.currentLevel}`;
 
     const map = this.make.tilemap({ key: mapKey });
     
     // Importante: El primer parámetro "tileset" tiene que coincidir con el nombre del patrón en tu Tiled
     const tileset = map.addTilesetImage("tileset", tilesetKey);
 
-    const belowLayer = map.createLayer("Fondo", tileset, 0, 0);
-    const platformLayer = map.createLayer("Plataformas", tileset, 0, 0);
-    const objectsLayer = map.getObjectLayer("Objetos");
+    const findLayerName = (names, fallbackIndex) => {
+      const lower = names.map((name) => name.toLowerCase());
+      const found = map.layers.find((layer) => lower.some((name) => layer.name.toLowerCase().includes(name)));
+      return found ? found.name : map.layers[fallbackIndex]?.name;
+    };
+
+    const belowLayerName = findLayerName(["fondo", "capa de patrones"], 0);
+    const platformLayerName = findLayerName(["plataforma", "plataformas"], 1);
+    const objectsLayer = map.getObjectLayer("Objetos") || map.getObjectLayer("Capa de Objetos 1") || map.layers.find((layer) => layer.type === "objectgroup");
+
+    const belowLayer = map.createLayer(belowLayerName, tileset, 0, 0);
+    const platformLayer = map.createLayer(platformLayerName, tileset, 0, 0);
 
     // Spawn del jugador basado en Tiled
-    const spawnPoint = map.findObject("Objetos", (obj) => obj.name === "player");
+    const spawnPoint = objectsLayer?.objects?.find((obj) => obj.name === "player");
+    if (!spawnPoint) {
+      throw new Error("No se encontró el punto de spawn del jugador en el tilemap");
+    }
     this.player = this.physics.add.sprite(spawnPoint.x, spawnPoint.y, "dude");
     this.player.setCollideWorldBounds(true);
 
@@ -155,19 +173,21 @@ export default class Game extends Phaser.Scene {
   }
 
   reachGoal(player, goal) {
-    // Requisito obligatorio: tener recolectadas al menos 5 estrellas
-    if (this.collectedStarsInLevel >= 5) {
+    const requiredStars = 5;
+
+    if (this.collectedStarsInLevel >= requiredStars) {
       if (this.currentLevel < 3) {
-        // Pasa al siguiente nivel arrastrando el puntaje acumulado anterior
-        this.scene.restart({
+        this.scene.start("game", {
           level: this.currentLevel + 1,
-          score: this.score
+          score: this.score,
         });
       } else {
-        // Fin del juego definitivo al terminar el Nivel 3 grande
         this.add.text(140, 320, "¡JUEGO LABERINTO COMPLETADO!", { fontSize: "36px", fill: "#0f0", backgroundColor: "#000" }).setScrollFactor(0);
         this.physics.pause();
       }
+      return;
     }
+
+    this.add.text(120, 360, `Necesitas ${requiredStars} estrellas para avanzar`, { fontSize: "24px", fill: "#ff0", backgroundColor: "#000" }).setScrollFactor(0).setDepth(10);
   }
 }
